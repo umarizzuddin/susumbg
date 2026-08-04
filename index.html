@@ -13,7 +13,7 @@
   header b{font-size:17px}
   .pad{padding:0 16px}
   h2{font-size:18px;margin:14px 16px 8px}
-  nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;display:grid;grid-template-columns:repeat(6,1fr);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
+  nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;display:grid;grid-template-columns:repeat(7,1fr);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
   nav button{border:none;background:none;padding:8px 0;font-size:10px;color:#94a3b8;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap}
   nav button .i{font-size:18px}
   nav button.on{color:var(--hijau);font-weight:600}
@@ -67,7 +67,7 @@
 </head>
 <body>
 <div class="wrap">
-  <header><div class="logo" id="lg">S</div><b id="judul">Susu Rakyat</b><span style="margin-left:auto;display:flex;align-items:center;gap:10px"><span id="statusCloud" style="font-size:11px;opacity:.85"></span><button onclick="bukaPengaturan()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0;line-height:1">\u2699\uFE0F</button></span></header>
+  <header><div class="logo" id="lg">S</div><div style="line-height:1.15"><b id="judul">Susu Rakyat</b><div id="labelCabang" onclick="pilihCabang()" style="font-size:11px;opacity:.9;cursor:pointer;display:flex;align-items:center;gap:4px">Cabang 1 ▾</div></div><span style="margin-left:auto;display:flex;align-items:center;gap:10px"><span id="statusCloud" style="font-size:11px;opacity:.85"></span><button onclick="bukaPengaturan()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0;line-height:1">\u2699\uFE0F</button></span></header>
   <div id="isi"></div>
 </div>
 <div class="keranjang" id="keranjang" style="display:none"></div>
@@ -83,7 +83,20 @@
    Kalau menu diubah lewat kode, NAIKKAN angka DATA_VERSI (mis. v3, v4) supaya
    semua perangkat memuat ulang menu terbaru otomatis.
    ========================================================================== */
-const TOKO="Susu Rakyat", HIJAU="#16a34a", BIRU="#2563eb";
+/* ====== DAFTAR CABANG ======
+   Tambah cabang = tambah 1 baris di sini.
+   PENTING: nilai "toko" cabang 1 JANGAN diubah (itu kunci data lama).
+   PIN cabang diatur dari aplikasi (Pengaturan Owner), bukan di sini. */
+const CABANG={
+  c1:{nama:"Cabang 1 (Pusat)", toko:"Susu Rakyat"},
+  c2:{nama:"Cabang 2",         toko:"Susu Rakyat C2"},
+  c3:{nama:"Cabang 3",         toko:"Susu Rakyat C3"}
+};
+let CB=localStorage.getItem("cabang_aktif")||"c1";
+if(!CABANG[CB])CB="c1";
+let TOKO=CABANG[CB].toko;
+const NAMA_TOKO="Susu Rakyat";
+const HIJAU="#16a34a", BIRU="#2563eb";
 const DATA_VERSI="v2-menu-asli";   /* << ganti angkanya tiap kali update menu lewat kode */
 
 const UKURAN_AWAL=[
@@ -116,15 +129,28 @@ const PRODUK_AWAL=[{"id": "ykx8lw4", "aktif": true, "nama": "Susu Coklat", "kate
    ========================================================================== */
 document.documentElement.style.setProperty("--hijau",HIJAU);
 document.documentElement.style.setProperty("--biru",BIRU);
-document.getElementById("judul").textContent=TOKO;
-document.getElementById("lg").textContent=TOKO[0]||"S";
-document.title=TOKO;
+document.getElementById("judul").textContent=NAMA_TOKO;
+document.getElementById("lg").textContent=NAMA_TOKO[0]||"S";
+document.title=NAMA_TOKO+" \u00B7 "+CABANG[CB].nama;
+function gambarLabelCabang(){
+  const el=document.getElementById("labelCabang");
+  if(el)el.textContent=CABANG[CB].nama+" \u25BE";
+  document.title=NAMA_TOKO+" \u00B7 "+CABANG[CB].nama;
+}
 
 const rp=n=>"Rp"+Math.round(n||0).toLocaleString("id-ID");
 const uid=()=>Math.random().toString(36).slice(2,9);
+/* k()  = kunci PER CABANG  (transaksi, pengeluaran, absen)
+   kG() = kunci BERSAMA     (produk, topping/ukuran, PIN, QR)
+   kG("produk") == "produk_Susu Rakyat" -> sama persis dengan kunci lama,
+   jadi menu & data cabang 1 yang sudah ada tetap kebaca tanpa migrasi. */
 const k=n=>n+"_"+TOKO;
-const load=(n,d)=>{try{const v=localStorage.getItem(k(n));return v?JSON.parse(v):d;}catch(e){return d;}};
+const kG=n=>n+"_"+NAMA_TOKO;
+const bacaKunci=(key,d)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):d;}catch(e){return d;}};
+const load=(n,d)=>bacaKunci(k(n),d);
 const save=(n,d)=>localStorage.setItem(k(n),JSON.stringify(d));
+const loadG=(n,d)=>bacaKunci(kG(n),d);
+const saveG=(n,d)=>localStorage.setItem(kG(n),JSON.stringify(d));
 
 /* ---------- CLOUD SYNC (Firestore) ---------- */
 const firebaseConfig={apiKey:"AIzaSyBfmC_tOIcLryvV4buBVNbTg2oGb6ZwWtA",authDomain:"susu-rakyat-pos.firebaseapp.com",projectId:"susu-rakyat-pos",storageBucket:"susu-rakyat-pos.firebasestorage.app",messagingSenderId:"661729395385",appId:"1:661729395385:web:a77300a230797a85941168"};
@@ -134,46 +160,90 @@ try{
   db=firebase.firestore();
   db.enablePersistence({synchronizeTabs:true}).catch(e=>console.warn("Persistence:",e.code));
 }catch(e){console.error("Firebase gagal diinisialisasi, app tetap jalan offline (localStorage saja):",e);}
-function dbSet(col,id,data){if(!db)return;db.collection(col).doc(String(id)).set(data).catch(e=>console.error("dbSet",col,id,e));}
-function dbDelete(col,id){if(!db)return;db.collection(col).doc(String(id)).delete().catch(e=>console.error("dbDelete",col,id,e));}
+/* Koleksi BERSAMA semua cabang: produk (menu master) & config (topping/ukuran/PIN/QR).
+   Koleksi PER CABANG: transaksi, pengeluaran, absen  -> toko/{kodeCabang}/... */
+const KOLEKSI_BERSAMA=["produk","config"];
+function ref(col){
+  return KOLEKSI_BERSAMA.includes(col)
+    ? db.collection(col)
+    : db.collection("toko").doc(CB).collection(col);
+}
+function dbSet(col,id,data){if(!db)return;ref(col).doc(String(id)).set(data).catch(e=>console.error("dbSet",col,id,e));}
+function dbDelete(col,id){if(!db)return;ref(col).doc(String(id)).delete().catch(e=>console.error("dbDelete",col,id,e));}
 let renderTimer=null;
 function renderNanti(){clearTimeout(renderTimer);renderTimer=setTimeout(render,150);}
+let unsubs=[];
+function stopSync(){unsubs.forEach(u=>{try{u();}catch(e){}});unsubs=[];}
 function mulaiSync(){
-  db.collection("produk").onSnapshot(snap=>{
-    produk=snap.docs.map(d=>d.data());save("produk",produk);
+  stopSync();
+  unsubs.push(ref("produk").onSnapshot(snap=>{
+    produk=snap.docs.map(d=>d.data());saveG("produk",produk);
     if(["dashboard","kasir","produk","stok"].includes(halaman))renderNanti();
-  },e=>console.error("sync produk",e));
-  db.collection("transaksi").onSnapshot(snap=>{
+  },e=>console.error("sync produk",e)));
+  unsubs.push(ref("transaksi").onSnapshot(snap=>{
     transaksi=snap.docs.map(d=>d.data()).sort((a,b)=>new Date(b.waktu)-new Date(a.waktu));save("trx",transaksi);
     if(["dashboard","laporan"].includes(halaman))renderNanti();
-  },e=>console.error("sync transaksi",e));
-  db.collection("pengeluaran").onSnapshot(snap=>{
+  },e=>console.error("sync transaksi",e)));
+  unsubs.push(ref("pengeluaran").onSnapshot(snap=>{
     pengeluaran=snap.docs.map(d=>d.data()).sort((a,b)=>new Date(b.waktu)-new Date(a.waktu));save("pengeluaran",pengeluaran);
     if(["keluar","laporan"].includes(halaman))renderNanti();
-  },e=>console.error("sync pengeluaran",e));
-  db.collection("config").doc("app").onSnapshot(doc=>{
+  },e=>console.error("sync pengeluaran",e)));
+  unsubs.push(ref("absen").onSnapshot(snap=>{
+    absen=snap.docs.map(d=>d.data()).sort((a,b)=>new Date(b.waktu)-new Date(a.waktu));simpanAbsen();
+    if(halaman==="absen")renderNanti();
+  },e=>console.error("sync absen",e)));
+  unsubs.push(db.collection("config").doc("app").onSnapshot(doc=>{
     if(!doc.exists)return;
     const d=doc.data();
     if(d.topping&&d.topping.length)TOPPING=d.topping;
     if(d.ukuran&&d.ukuran.length)UKURAN=d.ukuran;
-    KONFIG={topping:TOPPING,ukuran:UKURAN,pin:typeof d.pin==="string"?d.pin:(KONFIG.pin||"")};
-    save("konfig",KONFIG);
+    KONFIG={topping:TOPPING,ukuran:UKURAN,
+      pin:typeof d.pin==="string"?d.pin:(KONFIG.pin||""),
+      pinCabang:d.pinCabang||KONFIG.pinCabang||{},
+      qr:typeof d.qr==="string"?d.qr:(KONFIG.qr||"")};
+    saveG("konfig",KONFIG);
     if(["kasir","produk"].includes(halaman))renderNanti();
-  },e=>console.error("sync config",e));
+  },e=>console.error("sync config",e)));
 }
 async function pushSemuaKeCloud(){
   if(!db)return;
   const semua=[...produk.map(x=>["produk",x]),...transaksi.map(x=>["transaksi",x]),...pengeluaran.map(x=>["pengeluaran",x])];
   let batch=db.batch(),cnt=0;
-  for(const [col,item] of semua){batch.set(db.collection(col).doc(String(item.id)),item);cnt++;
+  for(const [col,item] of semua){batch.set(ref(col).doc(String(item.id)),item);cnt++;
     if(cnt>=450){await batch.commit();batch=db.batch();cnt=0;}}
   if(cnt>0)await batch.commit();
-  await db.collection("config").doc("app").set({topping:TOPPING,ukuran:UKURAN,pin:KONFIG.pin||""}).catch(e=>console.error("push config",e));
+  await db.collection("config").doc("app").set(objKonfig()).catch(e=>console.error("push config",e));
+}
+/* Migrasi sekali jalan: transaksi & pengeluaran yang dulu tersimpan di koleksi
+   root (belum ada cabang) dipindah ke toko/c1/. Data lama TIDAK dihapus,
+   jadi kalau ada apa-apa masih bisa dibalikin. */
+async function migrasiKeCabang(){
+  if(!db)return;
+  if(localStorage.getItem("migrasi_cabang_v1")==="ok")return;
+  try{
+    const cek=await db.collection("toko").doc("c1").collection("transaksi").limit(1).get();
+    if(!cek.empty){localStorage.setItem("migrasi_cabang_v1","ok");return;}
+    let total=0;
+    for(const col of ["transaksi","pengeluaran"]){
+      const lama=await db.collection(col).get();
+      if(lama.empty)continue;
+      let batch=db.batch(),cnt=0;
+      for(const d of lama.docs){
+        batch.set(db.collection("toko").doc("c1").collection(col).doc(d.id),d.data());
+        cnt++;total++;
+        if(cnt>=450){await batch.commit();batch=db.batch();cnt=0;}
+      }
+      if(cnt>0)await batch.commit();
+    }
+    localStorage.setItem("migrasi_cabang_v1","ok");
+    if(total)console.log("Migrasi cabang selesai:",total,"dokumen dipindah ke c1");
+  }catch(e){console.error("Migrasi cabang gagal:",e);}
 }
 async function cekMigrasi(){
   if(!db)return;
+  await migrasiKeCabang();
   try{
-    const snap=await db.collection("produk").limit(1).get();
+    const snap=await ref("produk").limit(1).get();
     if(snap.empty&&produk.length){
       modal(`<div style="text-align:center"><div style="font-size:42px">\u2601\uFE0F</div><b>Migrasi data ke Cloud</b>
         <p style="font-size:13px;color:#64748b;margin-top:8px">Database cloud masih kosong, tapi HP ini punya ${produk.length} produk, ${transaksi.length} transaksi, ${pengeluaran.length} catatan pengeluaran. Migrasikan sekarang supaya semua device (HP/tablet karyawan) bisa lihat data yang sama secara real-time.</p>
@@ -188,10 +258,13 @@ async function jalankanMigrasi(){
   catch(e){alert("Migrasi gagal: "+e.message+"\nCoba lagi lewat tombol di Laporan/Backup.");}
 }
 
-let KONFIG=load("konfig",{topping:TOPPING_AWAL,ukuran:UKURAN_AWAL,pin:""});
+let KONFIG=loadG("konfig",{topping:TOPPING_AWAL,ukuran:UKURAN_AWAL,pin:"",pinCabang:{},qr:""});
+if(!KONFIG.pinCabang)KONFIG.pinCabang={};
+if(typeof KONFIG.qr!=="string")KONFIG.qr="";
 let TOPPING=(KONFIG.topping&&KONFIG.topping.length)?KONFIG.topping:TOPPING_AWAL;
 let UKURAN=(KONFIG.ukuran&&KONFIG.ukuran.length)?KONFIG.ukuran:UKURAN_AWAL;
-function simpanKonfig(){KONFIG.topping=TOPPING;KONFIG.ukuran=UKURAN;save("konfig",KONFIG);dbSet("config","app",{topping:TOPPING,ukuran:UKURAN,pin:KONFIG.pin||""});}
+function objKonfig(){return {topping:TOPPING,ukuran:UKURAN,pin:KONFIG.pin||"",pinCabang:KONFIG.pinCabang||{},qr:KONFIG.qr||""};}
+function simpanKonfig(){KONFIG.topping=TOPPING;KONFIG.ukuran=UKURAN;saveG("konfig",KONFIG);dbSet("config","app",objKonfig());}
 function ubahModalTopping(i,v){TOPPING[i]=({...TOPPING[i],modal:Math.max(0,Number(v)||0)});simpanKonfig();}
 function ubahModalUkuranProduk(id,ukuranNama,v){
   produk=produk.map(p=>p.id===id?{...p,modalUkuran:{...(p.modalUkuran||{}),[ukuranNama]:Math.max(0,Number(v)||0)}}:p);
@@ -201,23 +274,45 @@ function ubahModalUkuranProduk(id,ukuranNama,v){
 
 /* --- Muat produk. Kalau versi data di perangkat beda dgn DATA_VERSI,
        muat ulang menu dari kode (transaksi tetap aman). --- */
-let produk=load("produk",null);
-const versiTersimpan=load("versiData",null);
+let produk=loadG("produk",null);
+const versiTersimpan=loadG("versiData",null);
 if(!produk || versiTersimpan!==DATA_VERSI){
   produk=PRODUK_AWAL.map(p=>({id:uid(),aktif:true,...p}));
-  save("produk",produk);
-  save("versiData",DATA_VERSI);
+  saveG("produk",produk);
+  saveG("versiData",DATA_VERSI);
 }
 let transaksi=load("trx",[]);
 let pengeluaran=load("pengeluaran",[]);
+let absen=load("absen",[]);
 let keranjang=[];
 let katAktif="Semua", halaman="dashboard";
 
-function simpanProduk(){save("produk",produk);}
+function simpanProduk(){saveG("produk",produk);}
 function simpanTrx(){save("trx",transaksi);}
 function simpanKeluar(){save("pengeluaran",pengeluaran);}
+function simpanAbsen(){try{save("absen",absen);}catch(e){
+  /* kalau penyimpanan penuh, buang foto absen yang paling lama dari memori HP
+     (data di cloud tetap utuh) */
+  absen=absen.slice(0,40);try{save("absen",absen);}catch(e2){}
+}}
 
-const TABS=[["dashboard","\u{1F3E0}","Dashboard"],["kasir","\u{1F6D2}","Kasir"],["produk","\u{1F4E6}","Produk"],["stok","\u{1F4CA}","Stok"],["keluar","\u{1F4B8}","Keluar"],["laporan","\u{1F4C8}","Laporan"]];
+/* ---- STOK PER CABANG ----
+   Menu & harga dipakai bareng semua cabang, tapi stok berdiri sendiri.
+   Disimpan sebagai peta di dalam produk: stokCabang:{c1:100,c2:50,c3:80}
+   Produk lama yang cuma punya p.stok otomatis dianggap stok cabang 1. */
+function stokOf(p){
+  if(p.stokCabang&&p.stokCabang[CB]!=null)return p.stokCabang[CB];
+  return CB==="c1"?(p.stok||0):0;
+}
+function denganStok(p,v){
+  const baru=Math.max(0,v);
+  const map={...(p.stokCabang||{})};map[CB]=baru;
+  const hasil={...p,stokCabang:map};
+  if(CB==="c1")hasil.stok=baru;
+  return hasil;
+}
+
+const TABS=[["dashboard","\u{1F3E0}","Dashboard"],["kasir","\u{1F6D2}","Kasir"],["absen","\u{1F4F8}","Absen"],["produk","\u{1F4E6}","Produk"],["stok","\u{1F4CA}","Stok"],["keluar","\u{1F4B8}","Keluar"],["laporan","\u{1F4C8}","Laporan"]];
 function gambarNav(){
   document.getElementById("nav").innerHTML=TABS.map(([id,i,l])=>
     `<button class="${halaman===id?'on':''}" onclick="ganti('${id}')"><span class="i">${i}</span>${l}</button>`).join("");
@@ -225,6 +320,56 @@ function gambarNav(){
 function ganti(h){
   if((h==="produk"||h==="laporan")&&KONFIG.pin){mintaPin(()=>{halaman=h;render();});return;}
   halaman=h;render();
+}
+
+/* ---------- PINDAH CABANG ---------- */
+function pilihCabang(){
+  modal(`<div><b style="font-size:15px">\u{1F3EA} Pilih cabang</b>
+    <div style="font-size:12px;color:#64748b;margin:6px 0 12px">Menu & harga sama di semua cabang. Transaksi, pengeluaran, stok, dan absen berdiri sendiri per cabang.</div>
+    ${Object.entries(CABANG).map(([kode,c])=>`
+      <div class="uk ${CB===kode?'on':''}" style="margin-bottom:8px" onclick="gantiCabang('${kode}')">
+        <b>${c.nama}</b>
+        <div style="font-size:11px;color:#94a3b8">${KONFIG.pinCabang&&KONFIG.pinCabang[kode]?"\u{1F512} Perlu PIN":"Terbuka"}${CB===kode?" \u00B7 sedang aktif":""}</div>
+      </div>`).join("")}
+    <button class="btn btn-g" style="margin-top:4px" onclick="tutupModal()">Tutup</button></div>`);
+}
+function gantiCabang(kode){
+  if(kode===CB){tutupModal();return;}
+  const pinC=(KONFIG.pinCabang||{})[kode];
+  const lanjut=()=>terapkanCabang(kode);
+  if(pinC)mintaPinCabang(kode,lanjut); else lanjut();
+}
+function mintaPinCabang(kode,onSukses){
+  window.__pinCabangTarget=kode;window.__pinCabangSukses=onSukses;
+  modal(`<div style="text-align:center">
+    <div style="font-size:42px">\u{1F512}</div><b>PIN ${CABANG[kode].nama}</b>
+    <input type="password" inputmode="numeric" id="pinCbInput" placeholder="PIN cabang" style="margin-top:12px;text-align:center;font-size:22px;letter-spacing:6px" maxlength="8">
+    <div id="pinCbErr" style="color:#ef4444;font-size:12px;margin-top:6px;min-height:16px"></div>
+    <div class="row2" style="margin-top:6px"><button class="btn btn-g" onclick="tutupModal()">Batal</button><button class="btn btn-h" onclick="cekPinCabang()">Masuk</button></div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px">PIN owner juga bisa dipakai untuk membuka cabang mana pun.</div>
+  </div>`);
+  setTimeout(()=>{const el=document.getElementById("pinCbInput");if(el){el.focus();el.onkeydown=e=>{if(e.key==="Enter")cekPinCabang();};}},60);
+}
+function cekPinCabang(){
+  const el=document.getElementById("pinCbInput");if(!el)return;
+  const kode=window.__pinCabangTarget;
+  const benar=(KONFIG.pinCabang||{})[kode];
+  if(el.value===benar||(KONFIG.pin&&el.value===KONFIG.pin)){
+    tutupModal();const f=window.__pinCabangSukses;window.__pinCabangSukses=null;f&&f();
+  }else{document.getElementById("pinCbErr").textContent="PIN salah, coba lagi";el.value="";el.focus();}
+}
+function terapkanCabang(kode){
+  tutupModal();
+  CB=kode;TOKO=CABANG[CB].toko;
+  localStorage.setItem("cabang_aktif",CB);
+  /* muat ulang data lokal milik cabang baru */
+  transaksi=load("trx",[]);
+  pengeluaran=load("pengeluaran",[]);
+  absen=load("absen",[]);
+  keranjang=[];diskonNom=0;diskonPersen=0;pajak=0;catatan="";
+  gambarLabelCabang();
+  halaman="dashboard";render();
+  if(db)mulaiSync();
 }
 function mintaPin(onSukses){
   window.__pinSukses=onSukses;
@@ -251,6 +396,70 @@ function bukaPengaturan(){
     <div id="pinSetErr" style="color:#ef4444;font-size:12px;margin-top:6px;min-height:16px"></div>
     <div class="row2" style="margin-top:10px"><button class="btn btn-g" onclick="tutupModal()">Batal</button><button class="btn btn-h" onclick="simpanPinBaru(${ada})">Simpan</button></div>
     ${ada?`<button class="btn" style="margin-top:8px;width:100%;color:#ef4444;background:#fee2e2" onclick="hapusPin()">Nonaktifkan PIN</button>`:""}
+    <div style="border-top:1px dashed #cbd5e1;margin:14px 0 10px"></div>
+    <b style="font-size:14px">\u{1F3EA} PIN per cabang</b>
+    <div style="font-size:12px;color:#64748b;margin:4px 0 8px">Supaya kasir cabang tidak bisa pindah ke cabang lain. Kosongkan kalau cabang itu tidak dikunci.</div>
+    ${Object.entries(CABANG).map(([kode,c])=>`<div class="baris" style="gap:8px">
+      <span style="flex:1;font-size:13px">${c.nama}</span>
+      <input type="text" inputmode="numeric" id="pinCb_${kode}" value="${(KONFIG.pinCabang||{})[kode]||""}" placeholder="kosong" style="width:100px;padding:6px 8px;text-align:center">
+    </div>`).join("")}
+    <button class="btn btn-b" style="margin-top:8px" onclick="simpanPinCabang()">Simpan PIN cabang</button>
+    <div style="border-top:1px dashed #cbd5e1;margin:14px 0 10px"></div>
+    <b style="font-size:14px">\u{1F4F1} QR Pembayaran</b>
+    <div style="font-size:12px;color:#64748b;margin:4px 0 8px">Upload foto QRIS/QR bank sekali di sini. Nanti kasir tinggal tekan tombol "Tunjukkan QR" di halaman Kasir.</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div id="qrPrev" style="width:74px;height:74px;border-radius:12px;background:#f1f5f9;display:grid;place-items:center;font-size:26px;overflow:hidden;flex-shrink:0">${KONFIG.qr?`<img src="${KONFIG.qr}" style="width:100%;height:100%;object-fit:contain">`:"\u{1F4F7}"}</div>
+      <input type="file" accept="image/*" onchange="pilihQR(this)" style="border:none;padding:0">
+    </div>
+    <div class="row2" style="margin-top:8px"><button class="btn btn-g" onclick="hapusQR()">Hapus QR</button><button class="btn btn-h" onclick="simpanQR()">Simpan QR</button></div>
+  </div>`);
+}
+function simpanPinCabang(){
+  const map={};
+  for(const kode of Object.keys(CABANG)){
+    const v=(document.getElementById("pinCb_"+kode).value||"").trim();
+    if(!v)continue;
+    if(!/^\d{4,8}$/.test(v)){alert("PIN "+CABANG[kode].nama+" harus 4-8 digit angka");return;}
+    map[kode]=v;
+  }
+  KONFIG.pinCabang=map;simpanKonfig();
+  alert("\u2705 PIN cabang tersimpan & aktif di semua device.");
+}
+let qrBaru=null;
+function pilihQR(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=700;let w=img.width,h=img.height;
+      if(w>h){if(w>max){h=h*max/w;w=max;}}else{if(h>max){w=w*max/h;h=max;}}
+      const cv=document.createElement("canvas");cv.width=w;cv.height=h;
+      const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0,w,h);
+      qrBaru=cv.toDataURL("image/jpeg",0.8);
+      document.getElementById("qrPrev").innerHTML=`<img src="${qrBaru}" style="width:100%;height:100%;object-fit:contain">`;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function simpanQR(){
+  if(!qrBaru){alert("Pilih foto QR dulu ya");return;}
+  KONFIG.qr=qrBaru;qrBaru=null;simpanKonfig();tutupModal();
+  alert("\u2705 QR tersimpan. Semua cabang & device bisa langsung pakai.");
+}
+function hapusQR(){
+  if(!confirm("Hapus foto QR?"))return;
+  KONFIG.qr="";qrBaru=null;simpanKonfig();tutupModal();
+}
+function tunjukkanQR(){
+  if(!KONFIG.qr){alert("Belum ada QR. Owner bisa upload lewat tombol \u2699\uFE0F di kanan atas \u2192 QR Pembayaran.");return;}
+  modal(`<div style="text-align:center">
+    <b style="font-size:16px">Scan untuk bayar</b>
+    <div style="font-size:12px;color:#64748b;margin:2px 0 10px">${NAMA_TOKO} \u00B7 ${CABANG[CB].nama}</div>
+    <img src="${KONFIG.qr}" style="width:100%;border-radius:14px;background:#fff">
+    <button class="btn btn-h" style="margin-top:12px" onclick="tutupModal()">Selesai</button>
   </div>`);
 }
 function simpanPinBaru(ada){
@@ -276,6 +485,7 @@ function render(){
   if(halaman==="stok")el.innerHTML=viewStok();
   if(halaman==="keluar")el.innerHTML=viewKeluar();
   if(halaman==="laporan")el.innerHTML=viewLaporan();
+  if(halaman==="absen")el.innerHTML=viewAbsen();
 }
 
 /* ---------- DASHBOARD ---------- */
@@ -299,8 +509,8 @@ function viewDashboard(){
     const tot=transaksi.filter(t=>new Date(t.waktu).toDateString()===d.toDateString()).reduce((s,t)=>s+t.total,0);
     per7.push({lbl:d.toLocaleDateString("id-ID",{weekday:"short"}),tot});}
   const maxBar=Math.max(1,...per7.map(x=>x.tot));
-  const tipis=produk.filter(p=>p.stok>0&&p.stok<=p.minStok);
-  const habis=produk.filter(p=>p.stok<=0);
+  const tipis=produk.filter(p=>stokOf(p)>0&&stokOf(p)<=p.minStok);
+  const habis=produk.filter(p=>stokOf(p)<=0);
 
   return `<h2>Dashboard</h2>
   <div class="stat">
@@ -320,7 +530,7 @@ function viewDashboard(){
   <div class="card"><b style="font-size:14px">Topping paling laku</b>
     ${terlarisTop.length?terlarisTop.map((t,i)=>{const cfg=TOPPING.find(y=>y.nama===t[0]);const untung=cfg?(cfg.harga-(cfg.modal||0))*t[1]:0;return `<div class="baris"><span>${i+1}. ${t[0]}</span><b>${t[1]}x \u00B7 <span style="color:var(--hijau)">untung ${rp(untung)}</span></b></div>`;}).join(""):`<div class="kosong">Belum ada topping terpakai</div>`}
   </div>
-  ${(tipis.length||habis.length)?`<div class="alert"><b>\u26A0\uFE0F Peringatan stok</b><br>${habis.map(p=>p.nama+" (habis)").concat(tipis.map(p=>p.nama+" (sisa "+p.stok+")")).join(", ")}</div>`:""}`;
+  ${(tipis.length||habis.length)?`<div class="alert"><b>\u26A0\uFE0F Peringatan stok</b><br>${habis.map(p=>p.nama+" (habis)").concat(tipis.map(p=>p.nama+" (sisa "+stokOf(p)+")")).join(", ")}</div>`:""}`;
 }
 const stat=(l,v)=>`<div class="b"><div class="l">${l}</div><div class="v">${v}</div></div>`;
 
@@ -328,17 +538,20 @@ const stat=(l,v)=>`<div class="b"><div class="l">${l}</div><div class="v">${v}</
 function viewKasir(){
   const kategori=["Semua",...new Set(produk.map(p=>p.kategori))];
   return `<h2>Kasir</h2>
-  <div class="pad"><input id="cari" placeholder="\u{1F50D} Cari produk..." oninput="cariProduk()"></div>
+  <div class="pad" style="display:flex;gap:8px">
+    <input id="cari" placeholder="\u{1F50D} Cari produk..." oninput="cariProduk()">
+    <button class="btn btn-b btn-sm" style="white-space:nowrap" onclick="tunjukkanQR()">\u{1F4F1} QR</button>
+  </div>
   <div class="kat" id="katBar">${kategori.map(c=>`<button class="${c===katAktif?'on':''}" onclick="setKat('${c}')">${c}</button>`).join("")}</div>
   <div class="grid" id="gridProduk">${gridProduk("")}</div>`;
 }
 function gridProduk(cari){
   const list=produk.filter(p=>p.aktif&&(katAktif==="Semua"||p.kategori===katAktif)&&p.nama.toLowerCase().includes(cari.toLowerCase()));
   if(!list.length)return `<div class="kosong" style="grid-column:1/-1">Produk tidak ditemukan</div>`;
-  return list.map(p=>{const off=p.stok<=0;
+  return list.map(p=>{const sisa=stokOf(p),off=sisa<=0;
     return `<div class="prod ${off?'off':''}" ${off?'':`onclick="bukaVarian('${p.id}')"`}>
       <div class="ikon">${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`:(p.ikon||"\u{1F964}")}</div><div class="nm">${p.nama}</div><div class="hg">${rp(p.harga)}</div>
-      <div class="st" style="color:${off?'#ef4444':p.stok<=p.minStok?'#d97706':'#94a3b8'}">${off?'Habis':'Stok '+p.stok}</div>
+      <div class="st" style="color:${off?'#ef4444':sisa<=p.minStok?'#d97706':'#94a3b8'}">${off?'Habis':'Stok '+sisa}</div>
     </div>`;}).join("");
 }
 function setKat(c){katAktif=c;const cari=document.getElementById("cari").value;
@@ -418,7 +631,7 @@ function bayar(){
   transaksi.unshift(trx);simpanTrx();
   dbSet("transaksi",trx.id,trx);
   const idTerdampak=[...new Set(keranjang.map(x=>x.produkId))];
-  produk=produk.map(p=>{const jual=keranjang.filter(x=>x.produkId===p.id).reduce((s,x)=>s+x.qty,0);return jual?{...p,stok:Math.max(0,p.stok-jual)}:p;});
+  produk=produk.map(p=>{const jual=keranjang.filter(x=>x.produkId===p.id).reduce((s,x)=>s+x.qty,0);return jual?denganStok(p,stokOf(p)-jual):p;});
   simpanProduk();
   idTerdampak.forEach(pid=>{const p=produk.find(x=>x.id===pid);if(p)dbSet("produk",pid,p);});
   bunyi();strukModal(trx);
@@ -455,23 +668,103 @@ function viewProduk(){
       ${UKURAN.map(u=>`<input type="number" value="${(p.modalUkuran&&p.modalUkuran[u.nama]!=null)?p.modalUkuran[u.nama]:p.modal}" style="flex:1;width:0;padding:6px 4px;text-align:center;font-size:12px" onchange="ubahModalUkuranProduk('${p.id}','${u.nama}',this.value)">`).join("")}
     </div>`).join("")}
   </div>
-  <div class="card"><b style="font-size:14px">HPP (Modal) Topping</b>
-    <div style="font-size:12px;color:#94a3b8;margin:4px 0 10px">Atur harga pokok tiap topping supaya laporan untung ikut hitung biaya topping (bukan cuma harga jual).</div>
-    ${TOPPING.map((t,i)=>`<div class="baris" style="gap:8px">
-      <span style="flex:1">${t.nama} <span style="color:#94a3b8;font-size:12px">jual ${rp(t.harga)}</span></span>
-      <span style="display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap">HPP <input type="number" value="${t.modal||0}" style="width:78px;padding:6px 8px" onchange="ubahModalTopping(${i},this.value)"></span>
+  <div class="card"><b style="font-size:14px;display:flex;justify-content:space-between;align-items:center">Daftar Topping
+      <button class="btn btn-h btn-sm" onclick="formTopping(-1)">+ Tambah</button></b>
+    <div style="font-size:12px;color:#94a3b8;margin:4px 0 10px">Tambah, ubah harga, atau hapus topping langsung dari sini \u2014 tidak perlu buka GitHub. Perubahan langsung terpakai di semua cabang & device.</div>
+    ${TOPPING.length?TOPPING.map((t,i)=>`<div class="baris" style="gap:8px;border-top:1px solid #f8fafc">
+      <span style="flex:1"><b>${t.nama}</b>
+        <div style="font-size:12px;color:#94a3b8;margin-top:2px">Jual ${rp(t.harga)} \u00B7 HPP ${rp(t.modal||0)} \u00B7 <span style="color:${t.harga-(t.modal||0)<0?'#ef4444':'#16a34a'}">untung ${rp(t.harga-(t.modal||0))}</span></div></span>
+      <span style="display:flex;gap:6px">
+        <button class="ico-btn" style="background:#f1f5f9" onclick="formTopping(${i})">\u270F\uFE0F</button>
+        <button class="ico-btn" style="background:#fee2e2" onclick="hapusTopping(${i})">\u{1F5D1}\uFE0F</button></span>
+    </div>`).join(""):`<div class="kosong">Belum ada topping</div>`}
+  </div>
+  <div class="card"><b style="font-size:14px;display:flex;justify-content:space-between;align-items:center">Ukuran
+      <button class="btn btn-h btn-sm" onclick="formUkuran(-1)">+ Tambah</button></b>
+    <div style="font-size:12px;color:#94a3b8;margin:4px 0 10px">Ukuran gelas & tambahan harganya. "Tambah harga" itu selisih dari harga dasar menu.</div>
+    ${UKURAN.map((u,i)=>`<div class="baris" style="gap:8px;border-top:1px solid #f8fafc">
+      <span style="flex:1"><b>${u.nama}</b>
+        <div style="font-size:12px;color:#94a3b8;margin-top:2px">${u.label||"-"} \u00B7 tambah harga ${rp(u.tambah||0)}</div></span>
+      <span style="display:flex;gap:6px">
+        <button class="ico-btn" style="background:#f1f5f9" onclick="formUkuran(${i})">\u270F\uFE0F</button>
+        ${UKURAN.length>1?`<button class="ico-btn" style="background:#fee2e2" onclick="hapusUkuran(${i})">\u{1F5D1}\uFE0F</button>`:""}</span>
     </div>`).join("")}
   </div>
   ${produk.map(p=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
     <div style="display:flex;gap:10px;align-items:center">
       <div style="width:46px;height:46px;border-radius:10px;background:#f1f5f9;display:grid;place-items:center;font-size:22px;overflow:hidden;flex-shrink:0">${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:(p.ikon||"\u{1F964}")}</div>
       <div><b>${p.nama}</b> <span class="tag">${p.kategori}</span>
-        <div style="font-size:13px;color:#64748b;margin-top:4px">Jual ${rp(p.harga)} \u00B7 Modal ${rp(p.modal)} \u00B7 Stok ${p.stok<=0?'<span style="color:#ef4444">Habis</span>':p.stok}</div></div></div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px">Jual ${rp(p.harga)} \u00B7 Modal ${rp(p.modal)} \u00B7 Stok ${stokOf(p)<=0?'<span style="color:#ef4444">Habis</span>':stokOf(p)}</div></div></div>
     <div style="display:flex;gap:6px">
       <button class="ico-btn" style="background:#f1f5f9" onclick="formProduk('${p.id}')">\u270F\uFE0F</button>
       <button class="ico-btn" style="background:#fee2e2" onclick="hapusProduk('${p.id}')">\u{1F5D1}\uFE0F</button></div>
   </div>`).join("")}`;
 }
+/* ---------- KELOLA TOPPING & UKURAN ---------- */
+function formTopping(i){
+  const baru=i<0;
+  const t=baru?{nama:"",harga:1000,modal:0}:TOPPING[i];
+  modal(`<b>${baru?"Tambah":"Edit"} topping</b>
+    <div style="margin-top:12px">
+      <label><span>Nama topping</span><input id="tNama" value="${t.nama}" placeholder="mis. Oreo Crumble"></label>
+      <div class="row2">
+        <label><span>Harga jual (Rp)</span><input id="tHarga" type="number" value="${t.harga}"></label>
+        <label><span>HPP / modal (Rp)</span><input id="tModal" type="number" value="${t.modal||0}"></label>
+      </div>
+      <div style="font-size:11px;color:#94a3b8">Harga jual otomatis ditambahkan ke total waktu kasir centang topping ini.</div>
+    </div>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn btn-g" onclick="tutupModal()">Batal</button>
+      <button class="btn btn-h" onclick="simpanTopping(${i})">Simpan</button></div>`);
+}
+function simpanTopping(i){
+  const nama=document.getElementById("tNama").value.trim();
+  const harga=+document.getElementById("tHarga").value||0;
+  const mdl=+document.getElementById("tModal").value||0;
+  if(!nama){alert("Nama topping wajib diisi");return;}
+  const bentrok=TOPPING.findIndex((x,idx)=>idx!==i&&x.nama.toLowerCase()===nama.toLowerCase());
+  if(bentrok>=0){alert("Topping dengan nama itu sudah ada");return;}
+  if(i<0)TOPPING.push({nama,harga,modal:mdl});
+  else TOPPING[i]={...TOPPING[i],nama,harga,modal:mdl};
+  simpanKonfig();tutupModal();render();
+}
+function hapusTopping(i){
+  const t=TOPPING[i];
+  if(!confirm(`Hapus topping "${t.nama}"?\n\nTransaksi lama yang sudah pakai topping ini tetap aman dan tidak berubah.`))return;
+  TOPPING.splice(i,1);simpanKonfig();render();
+}
+function formUkuran(i){
+  const baru=i<0;
+  const u=baru?{nama:"",tambah:0,label:""}:UKURAN[i];
+  modal(`<b>${baru?"Tambah":"Edit"} ukuran</b>
+    <div style="margin-top:12px">
+      <label><span>Nama ukuran</span><input id="uNama" value="${u.nama}" placeholder="mis. Pewaris"></label>
+      <div class="row2">
+        <label><span>Keterangan</span><input id="uLabel" value="${u.label||""}" placeholder="mis. Big"></label>
+        <label><span>Tambah harga (Rp)</span><input id="uTambah" type="number" value="${u.tambah||0}"></label>
+      </div>
+    </div>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn btn-g" onclick="tutupModal()">Batal</button>
+      <button class="btn btn-h" onclick="simpanUkuran(${i})">Simpan</button></div>`);
+}
+function simpanUkuran(i){
+  const nama=document.getElementById("uNama").value.trim();
+  const label=document.getElementById("uLabel").value.trim();
+  const tambah=+document.getElementById("uTambah").value||0;
+  if(!nama){alert("Nama ukuran wajib diisi");return;}
+  const bentrok=UKURAN.findIndex((x,idx)=>idx!==i&&x.nama.toLowerCase()===nama.toLowerCase());
+  if(bentrok>=0){alert("Ukuran dengan nama itu sudah ada");return;}
+  if(i<0)UKURAN.push({nama,tambah,label});
+  else UKURAN[i]={...UKURAN[i],nama,tambah,label};
+  simpanKonfig();tutupModal();render();
+}
+function hapusUkuran(i){
+  if(UKURAN.length<=1){alert("Minimal harus ada 1 ukuran");return;}
+  if(!confirm(`Hapus ukuran "${UKURAN[i].nama}"? Transaksi lama tetap aman.`))return;
+  UKURAN.splice(i,1);simpanKonfig();render();
+}
+
 function formProduk(id){
   const p=id?produk.find(x=>x.id===id):{nama:"",kategori:"Susu",harga:0,modal:0,stok:0,minStok:5,aktif:true,ikon:"\u{1F964}"};
   const kat=[...new Set(produk.map(x=>x.kategori))];
@@ -488,7 +781,7 @@ function formProduk(id){
     <label><span>Kategori</span><input id="fKat" value="${p.kategori}" list="katList"><datalist id="katList">${kat.map(c=>`<option>${c}</option>`).join("")}</datalist></label>
     <div class="row2"><label><span>Harga jual</span><input id="fHarga" type="number" value="${p.harga}"></label>
     <label><span>Harga modal</span><input id="fModal" type="number" value="${p.modal}"></label></div>
-    <div class="row2"><label><span>Stok</span><input id="fStok" type="number" value="${p.stok}"></label>
+    <div class="row2"><label><span>Stok (${CABANG[CB].nama})</span><input id="fStok" type="number" value="${p.id?stokOf(p):0}"></label>
     <label><span>Alert stok menipis</span><input id="fMin" type="number" value="${p.minStok}"></label></div>
     <label><span>Emoji (dipakai jika tanpa foto)</span><input id="fIkon" value="${p.ikon||'\u{1F964}'}"></label>
     <label style="display:flex;gap:8px;align-items:center;margin-top:4px"><input type="checkbox" id="fAktif" ${p.aktif?'checked':''} style="width:auto"> Tersedia dijual</label>
@@ -518,13 +811,14 @@ function pilihFoto(input){
 function simpanForm(id){
   const g=x=>document.getElementById(x);
   const data={nama:g("fNama").value.trim(),kategori:g("fKat").value.trim()||"Lainnya",
-    harga:+g("fHarga").value||0,modal:+g("fModal").value||0,stok:+g("fStok").value||0,
+    harga:+g("fHarga").value||0,modal:+g("fModal").value||0,
     minStok:+g("fMin").value||0,ikon:g("fIkon").value||"\u{1F964}",foto:fotoBaru,aktif:g("fAktif").checked};
+  const stokBaru=+g("fStok").value||0;
   if(!data.nama){alert("Nama produk wajib diisi");return;}
   try{
     let finalId=id;
-    if(id)produk=produk.map(p=>p.id===id?{...p,...data}:p);
-    else{finalId=uid();produk.push({id:finalId,...data});}
+    if(id)produk=produk.map(p=>p.id===id?denganStok({...p,...data},stokBaru):p);
+    else{finalId=uid();produk.push(denganStok({id:finalId,stokCabang:{},...data},stokBaru));}
     simpanProduk();
     dbSet("produk",finalId,produk.find(p=>p.id===finalId));
   }catch(e){alert("Penyimpanan penuh. Coba pakai foto lebih sedikit/lebih kecil.");return;}
@@ -535,23 +829,54 @@ function hapusProduk(id){if(confirm("Hapus produk ini?")){produk=produk.filter(p
 /* ---------- STOK ---------- */
 function viewStok(){
   return `<h2>Manajemen Stok</h2>
-  ${produk.map(p=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+  <div class="alert" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8">\u{1F4CD} Stok yang tampil di bawah ini <b>khusus ${CABANG[CB].nama}</b>. Cabang lain punya stok sendiri.</div>
+  ${produk.map(p=>{const sisa=stokOf(p);return `<div class="card" style="display:flex;justify-content:space-between;align-items:center">
     <div><b>${p.nama}</b>
-      <div style="font-size:13px;margin-top:3px;color:${p.stok<=0?'#ef4444':p.stok<=p.minStok?'#d97706':'#16a34a'}">
-        ${p.stok<=0?'HABIS':'Stok: '+p.stok} ${p.stok>0&&p.stok<=p.minStok?'(menipis)':''}</div></div>
+      <div style="font-size:13px;margin-top:3px;color:${sisa<=0?'#ef4444':sisa<=p.minStok?'#d97706':'#16a34a'}">
+        ${sisa<=0?'HABIS':'Stok: '+sisa} ${sisa>0&&sisa<=p.minStok?'(menipis)':''}</div></div>
     <button class="btn btn-b btn-sm" onclick="stokMasuk('${p.id}')">+ Stok masuk</button>
-  </div>`).join("")}`;
+  </div>`;}).join("")}`;
 }
 function stokMasuk(id){
   const p=produk.find(x=>x.id===id);
-  const n=prompt("Tambah stok untuk "+p.nama+" (jumlah):","10");
+  const n=prompt("Tambah stok "+p.nama+" di "+CABANG[CB].nama+" (jumlah):","10");
   if(n===null)return;const j=parseInt(n);if(isNaN(j))return;
-  produk=produk.map(x=>x.id===id?{...x,stok:x.stok+j}:x);simpanProduk();
+  produk=produk.map(x=>x.id===id?denganStok(x,stokOf(x)+j):x);simpanProduk();
   dbSet("produk",id,produk.find(x=>x.id===id));render();
 }
 
 /* ---------- LAPORAN ---------- */
 let rangeLap="hari";
+let lapDari="", lapSampai="";
+const tglStr=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+function rentangLaporan(){
+  const now=new Date();let start=new Date(now),end=null;
+  if(rangeLap==="hari"){start.setHours(0,0,0,0);}
+  else if(rangeLap==="kemarin"){
+    start.setDate(now.getDate()-1);start.setHours(0,0,0,0);
+    end=new Date(start);end.setHours(23,59,59,999);
+  }
+  else if(rangeLap==="minggu"){start.setDate(now.getDate()-6);start.setHours(0,0,0,0);}
+  else if(rangeLap==="bulan"){start.setDate(1);start.setHours(0,0,0,0);}
+  else if(rangeLap==="pilih"){
+    const d1=lapDari||tglStr(now), d2=lapSampai||d1;
+    start=new Date(d1+"T00:00:00");
+    end=new Date(d2+"T23:59:59");
+  }
+  return {start,end};
+}
+const dalamRentang=(w,r)=>{const d=new Date(w);return d>=r.start&&(!r.end||d<=r.end);};
+function labelRentang(r){
+  const f=d=>d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"});
+  if(!r.end)return "sejak "+f(r.start);
+  return f(r.start)===f(r.end)?f(r.start):f(r.start)+" \u2013 "+f(r.end);
+}
+function setTglLap(which,v){
+  if(which==="dari")lapDari=v; else lapSampai=v;
+  if(!lapDari)lapDari=v;
+  if(!lapSampai||new Date(lapSampai)<new Date(lapDari))lapSampai=lapDari;
+  rangeLap="pilih";render();
+}
 let rangeKel="hari";
 /* ---------- PENGELUARAN ---------- */
 function viewKeluar(){
@@ -600,14 +925,12 @@ function tambahKeluar(){
 function hapusKeluar(id){if(confirm("Hapus catatan pengeluaran ini?")){pengeluaran=pengeluaran.filter(e=>e.id!==id);simpanKeluar();dbDelete("pengeluaran",id);render();}}
 
 function viewLaporan(){
-  const now=new Date();let start=new Date(now);
-  if(rangeLap==="hari")start.setHours(0,0,0,0);
-  if(rangeLap==="minggu")start.setDate(now.getDate()-6);
-  if(rangeLap==="bulan"){start.setDate(1);start.setHours(0,0,0,0);}
-  const f=transaksi.filter(t=>new Date(t.waktu)>=start);
+  const now=new Date();
+  const rentang=rentangLaporan();
+  const f=transaksi.filter(t=>dalamRentang(t.waktu,rentang));
   const pemasukan=f.reduce((s,t)=>s+t.total,0);
   const laba=f.reduce((s,t)=>s+t.laba,0);
-  const keluarF=pengeluaran.filter(e=>new Date(e.waktu)>=start);
+  const keluarF=pengeluaran.filter(e=>dalamRentang(e.waktu,rentang));
   const totalKeluar=keluarF.reduce((s,e)=>s+e.total,0);
   const labaBersih=laba-totalKeluar;
   const perMetode={},nTrxMetode={};
@@ -646,7 +969,16 @@ function viewLaporan(){
   const sumberEntries=Object.entries(perMetode).filter(([m])=>!METODE_GRATIS.includes(m)&&!SUMBER_SEMBUNYI.includes(m));
   const maxSumber=Math.max(1,...sumberEntries.map(([,v])=>v));
   return `<h2>Laporan Keuangan</h2>
-  <div class="kat" style="padding-top:0">${[["hari","Harian"],["minggu","Mingguan"],["bulan","Bulanan"]].map(([id,l])=>`<button class="${rangeLap===id?'on':''}" onclick="setRange('${id}')">${l}</button>`).join("")}</div>
+  <div class="pad" style="font-size:12px;color:#64748b;margin-bottom:2px">${CABANG[CB].nama} \u00B7 ${labelRentang(rentang)}</div>
+  <div class="kat" style="padding-top:6px">${[["hari","Hari ini"],["kemarin","Kemarin"],["minggu","7 hari"],["bulan","Bulan ini"],["pilih","\u{1F4C5} Pilih tanggal"]].map(([id,l])=>`<button class="${rangeLap===id?'on':''}" onclick="setRange('${id}')">${l}</button>`).join("")}</div>
+  ${rangeLap==="pilih"?`<div class="card" style="margin-top:0">
+    <b style="font-size:13px">Rentang tanggal</b>
+    <div class="row2" style="margin-top:8px">
+      <label style="margin:0"><span>Dari</span><input type="date" value="${lapDari||tglStr(now)}" max="${tglStr(now)}" onchange="setTglLap('dari',this.value)"></label>
+      <label style="margin:0"><span>Sampai</span><input type="date" value="${lapSampai||lapDari||tglStr(now)}" max="${tglStr(now)}" onchange="setTglLap('sampai',this.value)"></label>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:6px">Isi tanggal yang sama di dua kolom kalau mau lihat satu hari saja.</div>
+  </div>`:""}
   <div class="stat">${stat("Pemasukan",rp(pemasukan))}${stat("Modal (HPP)",rp(pemasukan-laba))}${stat("Laba kotor",rp(laba))}${stat("Transaksi",f.length)}</div>
   <div class="card"><b style="font-size:14px">Ringkasan laba bersih</b>
     <div class="baris"><span>Laba kotor (jualan)</span><b>${rp(laba)}</b></div>
@@ -688,26 +1020,142 @@ function viewLaporan(){
     <button class="btn btn-g" onclick="document.getElementById('restoreFile').click()">\u{1F4C2} Restore</button></div>
     <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="restore(this)"></div>`;
 }
-function setRange(r){rangeLap=r;render();}
-function exportCSV(){
-  const rows=[["ID","Waktu","Items","Total","Laba","Metode","Gratis","NilaiGratis"]];
-  transaksi.forEach(t=>rows.push([t.id,new Date(t.waktu).toLocaleString("id-ID"),t.items.map(x=>x.qty+"x "+x.nama+" ("+x.ukuran+(x.toppings&&x.toppings.length?" + "+x.toppings.join(", "):"")+")").join("; "),t.total,Math.round(t.laba),t.metode,t.gratis?"Ya":"Tidak",t.nilaiGratis||0]));
-  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
-  unduh(new Blob([csv],{type:"text/csv"}),"laporan-"+TOKO+".csv");
+function setRange(r){
+  rangeLap=r;
+  if(r==="pilih"&&!lapDari){lapDari=tglStr(new Date());lapSampai=lapDari;}
+  render();
 }
-function backup(){unduh(new Blob([JSON.stringify({produk,transaksi,pengeluaran})],{type:"application/json"}),"backup-"+TOKO+".json");}
+function exportCSV(){
+  const rentang=rentangLaporan();
+  const rows=[["ID","Cabang","Waktu","Items","Total","Laba","Metode","Gratis","NilaiGratis"]];
+  transaksi.filter(t=>dalamRentang(t.waktu,rentang)).forEach(t=>rows.push([t.id,CABANG[CB].nama,new Date(t.waktu).toLocaleString("id-ID"),t.items.map(x=>x.qty+"x "+x.nama+" ("+x.ukuran+(x.toppings&&x.toppings.length?" + "+x.toppings.join(", "):"")+")").join("; "),t.total,Math.round(t.laba),t.metode,t.gratis?"Ya":"Tidak",t.nilaiGratis||0]));
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
+  unduh(new Blob([csv],{type:"text/csv"}),"laporan-"+CABANG[CB].nama.replace(/[^a-zA-Z0-9]/g,"-")+".csv");
+}
+function backup(){unduh(new Blob([JSON.stringify({cabang:CB,produk,transaksi,pengeluaran,absen,konfig:objKonfig()})],{type:"application/json"}),"backup-"+CABANG[CB].nama.replace(/[^a-zA-Z0-9]/g,"-")+".json");}
 function restore(inp){
   const file=inp.files[0];if(!file)return;const r=new FileReader();
-  r.onload=()=>{try{const d=JSON.parse(r.result);if(d.produk){produk=d.produk;simpanProduk();}if(d.transaksi){transaksi=d.transaksi;simpanTrx();}if(d.pengeluaran){pengeluaran=d.pengeluaran;simpanKeluar();}pushSemuaKeCloud();alert("Data berhasil dipulihkan & disinkron ke cloud");render();}catch(e){alert("File tidak valid");}};
+  r.onload=()=>{try{const d=JSON.parse(r.result);
+    if(d.cabang&&d.cabang!==CB&&!confirm("Backup ini milik "+((CABANG[d.cabang]||{}).nama||d.cabang)+", sedangkan sekarang kamu di "+CABANG[CB].nama+".\n\nLanjut pulihkan ke "+CABANG[CB].nama+"?"))return;
+    if(d.produk){produk=d.produk;simpanProduk();}if(d.transaksi){transaksi=d.transaksi;simpanTrx();}if(d.pengeluaran){pengeluaran=d.pengeluaran;simpanKeluar();}if(d.absen){absen=d.absen;simpanAbsen();}pushSemuaKeCloud();alert("Data berhasil dipulihkan & disinkron ke cloud");render();}catch(e){alert("File tidak valid");}};
   r.readAsText(file);
 }
 function unduh(blob,nama){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nama;a.click();}
 
+/* ---------- ABSEN KARYAWAN (FOTO MUKA) ---------- */
+let absenTgl="";
+function viewAbsen(){
+  const hariIni=tglStr(new Date());
+  const pilih=absenTgl||hariIni;
+  const list=absen.filter(a=>tglStr(new Date(a.waktu))===pilih);
+  const opening=list.filter(a=>a.tipe==="opening");
+  const closing=list.filter(a=>a.tipe==="closing");
+  const kartu=a=>`<div style="border-top:1px solid #f1f5f9;padding:10px 0;display:flex;gap:10px;align-items:center">
+    <img src="${a.foto}" onclick="lihatFotoAbsen('${a.id}')" style="width:54px;height:54px;border-radius:12px;object-fit:cover;flex-shrink:0;cursor:pointer">
+    <div style="flex:1">
+      <b>${a.nama}</b>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px">${new Date(a.waktu).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})} \u00B7 ${a.tipe==="opening"?"\u{1F305} Opening":"\u{1F303} Closing"}</div>
+    </div>
+    <button class="ico-btn" style="background:#fee2e2" onclick="hapusAbsen('${a.id}')">\u{1F5D1}\uFE0F</button>
+  </div>`;
+  return `<h2>Absen Karyawan</h2>
+  <div class="pad" style="font-size:12px;color:#64748b;margin-bottom:8px">${CABANG[CB].nama} \u00B7 absen tercatat khusus cabang ini</div>
+  <div class="pad" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <button class="btn btn-h" onclick="mulaiAbsen('opening')">\u{1F305} Absen Opening</button>
+    <button class="btn btn-b" onclick="mulaiAbsen('closing')">\u{1F303} Absen Closing</button>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <label style="margin:0"><span>Lihat tanggal</span>
+      <input type="date" value="${pilih}" max="${hariIni}" onchange="absenTgl=this.value;render()"></label>
+    <div class="stat" style="padding:0;grid-template-columns:1fr 1fr;margin-top:6px">
+      ${stat("Opening",opening.length)}${stat("Closing",closing.length)}
+    </div>
+  </div>
+  <div class="card"><b style="font-size:14px">Daftar absen ${pilih===hariIni?"hari ini":new Date(pilih+"T00:00:00").toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"})}</b>
+    ${list.length?list.slice().sort((a,b)=>new Date(a.waktu)-new Date(b.waktu)).map(kartu).join(""):`<div class="kosong">Belum ada absen di tanggal ini</div>`}
+  </div>`;
+}
+
+let absenTipe="opening", absenStream=null, absenFoto=null;
+function mulaiAbsen(tipe){
+  absenTipe=tipe;absenFoto=null;
+  const namaTerakhir=localStorage.getItem("absen_nama_"+CB)||"";
+  modal(`<div>
+    <b>${tipe==="opening"?"\u{1F305} Absen Opening":"\u{1F303} Absen Closing"}</b>
+    <div style="font-size:12px;color:#64748b;margin:4px 0 10px">${CABANG[CB].nama} \u00B7 ${new Date().toLocaleString("id-ID",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</div>
+    <label><span>Nama karyawan</span><input id="aNama" value="${namaTerakhir}" placeholder="Nama lengkap"></label>
+    <div id="kameraBox" style="position:relative;border-radius:14px;overflow:hidden;background:#0f172a;aspect-ratio:3/4;display:grid;place-items:center">
+      <video id="aVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+      <div id="aStatus" style="position:absolute;color:#fff;font-size:13px;text-align:center;padding:12px">Menyalakan kamera\u2026</div>
+    </div>
+    <canvas id="aCanvas" style="display:none"></canvas>
+    <div class="row2" style="margin-top:10px">
+      <button class="btn btn-g" onclick="tutupAbsen()">Batal</button>
+      <button class="btn btn-h" id="aJepret" onclick="jepretAbsen()">\u{1F4F8} Jepret & Simpan</button>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px;text-align:center">Foto disimpan otomatis bersama jam dan nama cabang.</div>
+  </div>`);
+  nyalakanKamera();
+}
+async function nyalakanKamera(){
+  const st=document.getElementById("aStatus");
+  try{
+    absenStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:720}},audio:false});
+    const v=document.getElementById("aVideo");
+    if(!v){matikanKamera();return;}
+    v.srcObject=absenStream;
+    if(st)st.style.display="none";
+  }catch(e){
+    if(st)st.innerHTML="Kamera tidak bisa dibuka.<br><span style='font-size:11px;opacity:.8'>Izinkan akses kamera di browser, lalu coba lagi.</span>";
+    console.error("kamera",e);
+  }
+}
+function matikanKamera(){
+  if(absenStream){absenStream.getTracks().forEach(t=>t.stop());absenStream=null;}
+}
+function tutupAbsen(){matikanKamera();tutupModal();}
+function jepretAbsen(){
+  const nama=(document.getElementById("aNama").value||"").trim();
+  if(!nama){alert("Isi nama karyawan dulu ya");return;}
+  const v=document.getElementById("aVideo");
+  if(!absenStream||!v||!v.videoWidth){alert("Kamera belum siap. Tunggu sebentar atau izinkan akses kamera.");return;}
+  const max=420;let w=v.videoWidth,h=v.videoHeight;
+  if(w>h){if(w>max){h=h*max/w;w=max;}}else{if(h>max){w=w*max/h;h=max;}}
+  const cv=document.getElementById("aCanvas");cv.width=w;cv.height=h;
+  cv.getContext("2d").drawImage(v,0,0,w,h);
+  const foto=cv.toDataURL("image/jpeg",0.6);
+  const entry={id:"ABS"+Date.now().toString().slice(-8),nama,tipe:absenTipe,
+    waktu:new Date().toISOString(),foto,cabang:CB,namaCabang:CABANG[CB].nama};
+  absen.unshift(entry);simpanAbsen();
+  dbSet("absen",entry.id,entry);
+  localStorage.setItem("absen_nama_"+CB,nama);
+  matikanKamera();tutupModal();bunyi();
+  absenTgl="";render();
+  alert("\u2705 Absen "+(absenTipe==="opening"?"opening":"closing")+" tersimpan untuk "+nama);
+}
+function lihatFotoAbsen(id){
+  const a=absen.find(x=>x.id===id);if(!a)return;
+  modal(`<div style="text-align:center">
+    <b>${a.nama}</b>
+    <div style="font-size:12px;color:#64748b;margin:2px 0 10px">${a.namaCabang||CABANG[CB].nama} \u00B7 ${a.tipe==="opening"?"Opening":"Closing"} \u00B7 ${new Date(a.waktu).toLocaleString("id-ID",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+    <img src="${a.foto}" style="width:100%;border-radius:14px">
+    <button class="btn btn-h" style="margin-top:12px" onclick="tutupModal()">Tutup</button>
+  </div>`);
+}
+function hapusAbsen(id){
+  if(!confirm("Hapus catatan absen ini?"))return;
+  absen=absen.filter(a=>a.id!==id);simpanAbsen();dbDelete("absen",id);render();
+}
+
 /* ---------- util ---------- */
 function modal(html){document.getElementById("modalArea").innerHTML=`<div class="modal" onclick="if(event.target===this)tutupModal()"><div class="sheet">${html}</div></div>`;}
-function tutupModal(){document.getElementById("modalArea").innerHTML="";}
+function tutupModal(){
+  if(typeof matikanKamera==="function")matikanKamera();
+  document.getElementById("modalArea").innerHTML="";
+}
 function bunyi(){try{const c=new(window.AudioContext||window.webkitAudioContext)();[880,1175].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.frequency.value=f;o.connect(g);g.connect(c.destination);const t=c.currentTime+i*0.14;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.25,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.13);o.start(t);o.stop(t+0.14);});}catch(e){}}
 
+gambarLabelCabang();
 render();
 cekMigrasi();
 function updateStatusCloud(){
