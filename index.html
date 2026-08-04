@@ -200,6 +200,7 @@ function mulaiSync(){
     KONFIG={topping:TOPPING,ukuran:UKURAN,
       pin:typeof d.pin==="string"?d.pin:(KONFIG.pin||""),
       pinCabang:d.pinCabang||KONFIG.pinCabang||{},
+      pinOwner:d.pinOwner||KONFIG.pinOwner||{},
       qr:typeof d.qr==="string"?d.qr:(KONFIG.qr||"")};
     saveG("konfig",KONFIG);
     if(["kasir","produk"].includes(halaman))renderNanti();
@@ -258,12 +259,21 @@ async function jalankanMigrasi(){
   catch(e){alert("Migrasi gagal: "+e.message+"\nCoba lagi lewat tombol di Laporan/Backup.");}
 }
 
-let KONFIG=loadG("konfig",{topping:TOPPING_AWAL,ukuran:UKURAN_AWAL,pin:"",pinCabang:{},qr:""});
+let KONFIG=loadG("konfig",{topping:TOPPING_AWAL,ukuran:UKURAN_AWAL,pin:"",pinCabang:{},pinOwner:{},qr:""});
 if(!KONFIG.pinCabang)KONFIG.pinCabang={};
+if(!KONFIG.pinOwner)KONFIG.pinOwner={};
 if(typeof KONFIG.qr!=="string")KONFIG.qr="";
+
+/* PIN Produk & Laporan untuk cabang yang sedang aktif.
+   Kalau cabang itu belum diisi PIN sendiri, jatuh ke PIN Owner Utama. */
+function pinOwnerCabang(kode){
+  const km=kode||CB;
+  const p=(KONFIG.pinOwner||{})[km];
+  return (typeof p==="string"&&p)?p:(KONFIG.pin||"");
+}
 let TOPPING=(KONFIG.topping&&KONFIG.topping.length)?KONFIG.topping:TOPPING_AWAL;
 let UKURAN=(KONFIG.ukuran&&KONFIG.ukuran.length)?KONFIG.ukuran:UKURAN_AWAL;
-function objKonfig(){return {topping:TOPPING,ukuran:UKURAN,pin:KONFIG.pin||"",pinCabang:KONFIG.pinCabang||{},qr:KONFIG.qr||""};}
+function objKonfig(){return {topping:TOPPING,ukuran:UKURAN,pin:KONFIG.pin||"",pinCabang:KONFIG.pinCabang||{},pinOwner:KONFIG.pinOwner||{},qr:KONFIG.qr||""};}
 function simpanKonfig(){KONFIG.topping=TOPPING;KONFIG.ukuran=UKURAN;saveG("konfig",KONFIG);dbSet("config","app",objKonfig());}
 function ubahModalTopping(i,v){TOPPING[i]=({...TOPPING[i],modal:Math.max(0,Number(v)||0)});simpanKonfig();}
 function ubahModalUkuranProduk(id,ukuranNama,v){
@@ -318,7 +328,7 @@ function gambarNav(){
     `<button class="${halaman===id?'on':''}" onclick="ganti('${id}')"><span class="i">${i}</span>${l}</button>`).join("");
 }
 function ganti(h){
-  if((h==="produk"||h==="laporan")&&KONFIG.pin){mintaPin(()=>{halaman=h;render();});return;}
+  if((h==="produk"||h==="laporan")&&pinOwnerCabang()){mintaPin(()=>{halaman=h;render();});return;}
   halaman=h;render();
 }
 
@@ -329,7 +339,7 @@ function pilihCabang(){
     ${Object.entries(CABANG).map(([kode,c])=>`
       <div class="uk ${CB===kode?'on':''}" style="margin-bottom:8px" onclick="gantiCabang('${kode}')">
         <b>${c.nama}</b>
-        <div style="font-size:11px;color:#94a3b8">${KONFIG.pinCabang&&KONFIG.pinCabang[kode]?"\u{1F512} Perlu PIN":"Terbuka"}${CB===kode?" \u00B7 sedang aktif":""}</div>
+        <div style="font-size:11px;color:#94a3b8">${(KONFIG.pinCabang||{})[kode]?"\u{1F512} Perlu PIN":"Terbuka"}${(KONFIG.pinOwner||{})[kode]?" \u00B7 PIN laporan sendiri":""}${CB===kode?" \u00B7 sedang aktif":""}</div>
       </div>`).join("")}
     <button class="btn btn-g" style="margin-top:4px" onclick="tutupModal()">Tutup</button></div>`);
 }
@@ -374,7 +384,7 @@ function terapkanCabang(kode){
 function mintaPin(onSukses){
   window.__pinSukses=onSukses;
   modal(`<div style="text-align:center">
-    <div style="font-size:42px">\u{1F512}</div><b>Masukkan PIN Owner</b>
+    <div style="font-size:42px">\u{1F512}</div><b>PIN Owner \u00B7 ${CABANG[CB].nama}</b>
     <input type="password" inputmode="numeric" id="pinInput" placeholder="PIN" style="margin-top:12px;text-align:center;font-size:22px;letter-spacing:6px" maxlength="8">
     <div id="pinErr" style="color:#ef4444;font-size:12px;margin-top:6px;min-height:16px"></div>
     <div class="row2" style="margin-top:6px"><button class="btn btn-g" onclick="tutupModal()">Batal</button><button class="btn btn-h" onclick="cekPin()">Buka</button></div>
@@ -383,13 +393,13 @@ function mintaPin(onSukses){
 }
 function cekPin(){
   const el=document.getElementById("pinInput");if(!el)return;
-  if(el.value===KONFIG.pin){tutupModal();const f=window.__pinSukses;window.__pinSukses=null;f&&f();}
+  if(el.value===pinOwnerCabang()||(KONFIG.pin&&el.value===KONFIG.pin)){tutupModal();const f=window.__pinSukses;window.__pinSukses=null;f&&f();}
   else{document.getElementById("pinErr").textContent="PIN salah, coba lagi";el.value="";el.focus();}
 }
 function bukaPengaturan(){
   const ada=!!KONFIG.pin;
   modal(`<div><b style="font-size:15px">\u2699\uFE0F Pengaturan Owner</b>
-    <div style="margin-top:10px;font-size:13px;color:#64748b">${ada?"PIN owner aktif untuk halaman Produk & Laporan. Karyawan tidak bisa buka tab itu tanpa PIN.":"Belum ada PIN. Set PIN 4-8 digit angka supaya karyawan tidak bisa buka Produk & Laporan."}</div>
+    <div style="margin-top:10px;font-size:13px;color:#64748b"><b>PIN Owner Utama</b> \u2014 kunci induk. Bisa membuka Produk & Laporan di <b>semua</b> cabang, dan membuka semua kunci cabang. ${ada?"":"Belum diset."}</div>
     ${ada?`<input type="password" inputmode="numeric" id="pinLama" placeholder="PIN lama" style="margin-top:10px">`:""}
     <input type="password" inputmode="numeric" id="pinBaru" placeholder="PIN baru (4-8 digit angka)" style="margin-top:8px">
     <input type="password" inputmode="numeric" id="pinUlang" placeholder="Ulangi PIN baru" style="margin-top:8px">
@@ -397,13 +407,19 @@ function bukaPengaturan(){
     <div class="row2" style="margin-top:10px"><button class="btn btn-g" onclick="tutupModal()">Batal</button><button class="btn btn-h" onclick="simpanPinBaru(${ada})">Simpan</button></div>
     ${ada?`<button class="btn" style="margin-top:8px;width:100%;color:#ef4444;background:#fee2e2" onclick="hapusPin()">Nonaktifkan PIN</button>`:""}
     <div style="border-top:1px dashed #cbd5e1;margin:14px 0 10px"></div>
-    <b style="font-size:14px">\u{1F3EA} PIN per cabang</b>
-    <div style="font-size:12px;color:#64748b;margin:4px 0 8px">Supaya kasir cabang tidak bisa pindah ke cabang lain. Kosongkan kalau cabang itu tidak dikunci.</div>
-    ${Object.entries(CABANG).map(([kode,c])=>`<div class="baris" style="gap:8px">
-      <span style="flex:1;font-size:13px">${c.nama}</span>
-      <input type="text" inputmode="numeric" id="pinCb_${kode}" value="${(KONFIG.pinCabang||{})[kode]||""}" placeholder="kosong" style="width:100px;padding:6px 8px;text-align:center">
+    <b style="font-size:14px">\u{1F511} PIN per cabang</b>
+    <div style="font-size:12px;color:#64748b;margin:4px 0 10px">Tiap cabang bisa punya PIN sendiri. Kosongkan kalau tidak dipakai.</div>
+    <div style="display:flex;gap:8px;font-size:11px;color:#94a3b8;padding:0 0 5px;border-bottom:1px solid #f1f5f9">
+      <span style="flex:1.3">Cabang</span><span style="flex:1;text-align:center">Masuk cabang</span><span style="flex:1;text-align:center">Produk & Laporan</span></div>
+    ${Object.entries(CABANG).map(([kode,c])=>`<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #f8fafc">
+      <span style="flex:1.3;font-size:13px">${c.nama}</span>
+      <input type="text" inputmode="numeric" maxlength="8" id="pinCb_${kode}" value="${(KONFIG.pinCabang||{})[kode]||""}" placeholder="kosong" style="flex:1;width:0;padding:6px 4px;text-align:center;font-size:13px">
+      <input type="text" inputmode="numeric" maxlength="8" id="pinOw_${kode}" value="${(KONFIG.pinOwner||{})[kode]||""}" placeholder="ikut utama" style="flex:1;width:0;padding:6px 4px;text-align:center;font-size:13px">
     </div>`).join("")}
-    <button class="btn btn-b" style="margin-top:8px" onclick="simpanPinCabang()">Simpan PIN cabang</button>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px">
+      \u2022 <b>Masuk cabang</b>: dibutuhkan saat menekan nama cabang di pojok kiri atas untuk pindah ke cabang itu.<br>
+      \u2022 <b>Produk & Laporan</b>: PIN buka tab Produk & Laporan khusus cabang itu. Kalau dikosongkan, cabang itu memakai PIN Owner Utama.</div>
+    <button class="btn btn-b" style="margin-top:10px" onclick="simpanPinCabang()">Simpan PIN cabang</button>
     <div style="border-top:1px dashed #cbd5e1;margin:14px 0 10px"></div>
     <b style="font-size:14px">\u{1F4F1} QR Pembayaran</b>
     <div style="font-size:12px;color:#64748b;margin:4px 0 8px">Upload foto QRIS/QR bank sekali di sini. Nanti kasir tinggal tekan tombol "Tunjukkan QR" di halaman Kasir.</div>
@@ -415,14 +431,14 @@ function bukaPengaturan(){
   </div>`);
 }
 function simpanPinCabang(){
-  const map={};
+  const mapMasuk={},mapOwner={};
   for(const kode of Object.keys(CABANG)){
-    const v=(document.getElementById("pinCb_"+kode).value||"").trim();
-    if(!v)continue;
-    if(!/^\d{4,8}$/.test(v)){alert("PIN "+CABANG[kode].nama+" harus 4-8 digit angka");return;}
-    map[kode]=v;
+    const a=(document.getElementById("pinCb_"+kode).value||"").trim();
+    const b=(document.getElementById("pinOw_"+kode).value||"").trim();
+    if(a){ if(!/^\d{4,8}$/.test(a)){alert("PIN masuk "+CABANG[kode].nama+" harus 4-8 digit angka");return;} mapMasuk[kode]=a; }
+    if(b){ if(!/^\d{4,8}$/.test(b)){alert("PIN Produk & Laporan "+CABANG[kode].nama+" harus 4-8 digit angka");return;} mapOwner[kode]=b; }
   }
-  KONFIG.pinCabang=map;simpanKonfig();
+  KONFIG.pinCabang=mapMasuk;KONFIG.pinOwner=mapOwner;simpanKonfig();
   alert("\u2705 PIN cabang tersimpan & aktif di semua device.");
 }
 let qrBaru=null;
